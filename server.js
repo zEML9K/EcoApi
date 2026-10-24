@@ -1,22 +1,15 @@
-import express from 'express';
+import 'dotenv/config';
 import mongoose from 'mongoose';
-import stationRoutes from './routes/stations.js'; // Імпорт маршрутів з кроку 5
+import app from './app.js';
 
-const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(express.json());
-
-// Підключення до MongoDB
-mongoose.connect('mongodb://localhost:27017/ecological_monitoring')
-    .then(() => console.log('Успішно підключено до MongoDB'))
-    .catch((err) => console.error('Помилка підключення до MongoDB:', err));
-
-// Реєстрація маршрутів
-app.use('/api/stations', stationRoutes);
-
-// Запуск сервера
-app.listen(PORT, () => {
-    console.log(`HTTP сервер прослуховує на порті ${PORT}`);
-});
+mongoose.connect(process.env.MONGO_URI)
+    .then(() => {
+        console.log('РЈСЃРїС–С€РЅРѕ РїС–РґРєР»СЋС‡РµРЅРѕ РґРѕ MongoDB');
+        app.listen(PORT, () => console.log(`HTTP СЃРµСЂРІРµСЂ РїСЂРѕСЃР»СѓС…РѕРІСѓС” РїРѕСЂС‚ ${PORT}`));
+    })
+    .catch((err) => {
+        console.error('РџРѕРјРёР»РєР° РїС–РґРєР»СЋС‡РµРЅРЅСЏ РґРѕ MongoDB:', err.message);
+        process.exit(1);
+    });
