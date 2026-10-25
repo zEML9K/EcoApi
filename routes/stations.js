@@ -1,5 +1,6 @@
 import express from 'express';
 import Station from '../models/Station.js';
+import { handleError } from '../utils/handleError.js';
 
 const router = express.Router();
 
@@ -46,7 +47,7 @@ router.put('/:id', async (req, res) => {
         const updatedStation = await Station.findByIdAndUpdate(
             req.params.id,
             req.body ?? {},
-            { new: true, runValidators: true }
+            { returnDocument: 'after', runValidators: true }
         );
 
         if (!updatedStation) {
@@ -72,12 +73,5 @@ router.delete('/:id', async (req, res) => {
         handleError(res, error);
     }
 });
-
-function handleError(res, error) {
-    if (error.name === 'ValidationError' || error.name === 'CastError') {
-        return res.status(400).json({ success: false, error: error.message });
-    }
-    res.status(500).json({ success: false, error: 'Помилка сервера' });
-}
 
 export default router;

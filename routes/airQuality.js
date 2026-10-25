@@ -1,6 +1,7 @@
 import express from 'express';
 import AirQuality from '../models/AirQuality.js';
 import Station from '../models/Station.js';
+import { handleError } from '../utils/handleError.js';
 
 const router = express.Router();
 
@@ -57,7 +58,7 @@ router.put('/:id', async (req, res) => {
         const item = await AirQuality.findByIdAndUpdate(
             req.params.id,
             req.body ?? {},
-            { new: true, runValidators: true }
+            { returnDocument: 'after', runValidators: true }
         );
         if (!item) {
             return res.status(404).json({ success: false, error: 'Вимірювання не знайдено' });
@@ -79,12 +80,5 @@ router.delete('/:id', async (req, res) => {
         handleError(res, error);
     }
 });
-
-function handleError(res, error) {
-    if (error.name === 'ValidationError' || error.name === 'CastError') {
-        return res.status(400).json({ success: false, error: error.message });
-    }
-    res.status(500).json({ success: false, error: 'Помилка сервера' });
-}
 
 export default router;
