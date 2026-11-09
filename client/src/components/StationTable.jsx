@@ -1,26 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import API from '../services/api';
+import DataTable from './DataTable';
+
+const emptyForm = { name: '', city: '', latitude: '', longitude: '', active: true };
+
+const columns = [
+  { header: 'Назва', render: (st) => st.name },
+  { header: 'Місто', render: (st) => st.city },
+  { header: 'Координати', render: (st) => `${st.latitude}, ${st.longitude}` },
+  {
+    header: 'Статус',
+    render: (st) => (
+      <span className={`badge ${st.active ? 'badge-on' : 'badge-off'}`}>
+        {st.active ? '🟢 Активна' : '🔴 Неактивна'}
+      </span>
+    )
+  }
+];
 
 function StationTable() {
   const [stations, setStations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [formData, setFormData] = useState(emptyForm);
+  const [editingId, setEditingId] = useState(null);
 
-  const [formData, setFormData] = useState({
-    name: '',
-    city: '',
-    latitude: '',
-    longitude: ''
-  });
+  const errorText = (err) => err.response?.data?.error || err.message;
 
-  // Функція завантаження станцій з API (використовує useEffect)
   const fetchStations = async () => {
     try {
-      setLoading(true);
       const res = await API.get('/stations');
       setStations(res.data.data);
+      setError(null);
     } catch (err) {
-      setError(err.response?.data?.error || err.message);
+      setError(errorText(err));
     } finally {
       setLoading(false);
     }
@@ -30,106 +43,103 @@ function StationTable() {
     fetchStations();
   }, []);
 
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData({ ...formData, [name]: type === 'checkbox' ? checked : value });
+  };
+
+  const resetForm = () => {
+    setFormData(emptyForm);
+    setEditingId(null);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const payload = {
+      ...formData,
+      latitude: parseFloat(formData.latitude),
+      longitude: parseFloat(formData.longitude)
+    };
     try {
-      await API.post('/stations', {
-        ...formData,
-        latitude: parseFloat(formData.latitude),
-        longitude: parseFloat(formData.longitude)
-      });
-      setFormData({ name: '', city: '', latitude: '', longitude: '' });
-      fetchStations(); 
+      if (editingId) {
+        await API.put(`/stations/${editingId}`, payload);
+      } else {
+        await API.post('/stations', payload);
+      }
+      resetForm();
+      fetchStations();
     } catch (err) {
-      alert('Помилка створення: ' + (err.response?.data?.error || err.message));
+      alert('Помилка збереження: ' + errorText(err));
     }
+  };
+
+  const handleEdit = (st) => {
+    setEditingId(st._id);
+    setFormData({
+      name: st.name,
+      city: st.city,
+      latitude: String(st.latitude),
+      longitude: String(st.longitude),
+      active: st.active
+    });
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Ви впевнені, що хочете видалити цю станцію?')) return;
     try {
       await API.delete(`/stations/${id}`);
+      if (id === editingId) resetForm();
       fetchStations();
     } catch (err) {
-      alert('Помилка видалення: ' + (err.response?.data?.error || err.message));
+      alert('Помилка видалення: ' + errorText(err));
     }
   };
 
-  if (loading) return <div>Завантаження станцій...</div>;
-  if (error) return <div style={{ color: 'red' }}>Помилка: {error}</div>;
+  if (loading) return <div className="state-message">Завантаження станцій...</div>;
 
   return (
-    <div style={{ marginBottom: '40px' }}>
-      <h2>📍 Станції екологічного моніторингу (Stations)</h2>
+    <section className="section">
+      <h2 className="section-title">Станції екологічного моніторингу</h2>
 
-      {/* Форма для додавання (CREATE) */}
-      <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
-        <input
-          type="text"
-          placeholder="Назва станції"
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          required
-        />
-        <input
-          type="text"
-          placeholder="Місто"
-          value={formData.city}
-          onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-          required
-        />
-        <input
-          type="number"
-          step="any"
-          placeholder="Широта (-90 до 90)"
-          value={formData.latitude}
-          onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
-          required
-        />
-        <input
-          type="number"
-          step="any"
-          placeholder="Довгота (-180 до 180)"
-          value={formData.longitude}
-          onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
-          required
-        />
-        <button type="submit" style={{ background: '#2e7d32', color: '#fff', border: 'none', padding: '8px 15px', cursor: 'pointer' }}>
-          Додати
+      {error && <div className="state-message state-error banner">Помилка: {error}</div>}
+
+      <form onSubmit={handleSubmit} className="form-row">
+        <input className="input" type="text" name="name" placeholder="Назва станції"
+          value={formData.name} onChange={handleChange} required />
+        <input className="input" type="text" name="city" placeholder="Місто"
+          value={formData.city} onChange={handleChange} required />
+        <input className="input" type="number" step="any" name="latitude"
+          placeholder="Широта (-90 до 90)" value={formData.latitude}
+          onChange={handleChange} required />
+        <input className="input" type="number" step="any" name="longitude"
+          placeholder="Довгота (-180 до 180)" value={formData.longitude}
+          onChange={handleChange} required />
+
+        {editingId && (
+          <label className="checkbox">
+            <input type="checkbox" name="active" checked={formData.active} onChange={handleChange} />
+            Активна
+          </label>
+        )}
+
+        <button type="submit" className="btn btn-primary">
+          {editingId ? 'Зберегти' : 'Додати'}
         </button>
+        {editingId && (
+          <button type="button" className="btn btn-secondary" onClick={resetForm}>
+            Скасувати
+          </button>
+        )}
       </form>
 
-      {/* Таблиця виведення даних (READ) */}
-      <table border="1" cellPadding="10" style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr style={{ background: '#f4f4f4' }}>
-            <th>Назва</th>
-            <th>Місто</th>
-            <th>Координати</th>
-            <th>Статус</th>
-            <th>Дії</th>
-          </tr>
-        </thead>
-        <tbody>
-          {stations.map((st) => (
-            <tr key={st._id}>
-              <td>{st.name}</td>
-              <td>{st.city}</td>
-              <td>{st.latitude}, {st.longitude}</td>
-              <td>{st.active ? '🟢 Активна' : '🔴 Неактивна'}</td>
-              <td>
-                <button 
-                  onClick={() => handleDelete(st._id)} 
-                  style={{ background: '#d32f2f', color: '#fff', border: 'none', padding: '5px 10px', cursor: 'pointer' }}
-                >
-                  Видалити
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+      <DataTable
+        columns={columns}
+        data={stations}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        emptyText="Станцій поки немає"
+      />
+    </section>
   );
 }
 
